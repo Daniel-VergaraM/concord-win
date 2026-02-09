@@ -33,7 +33,9 @@
 
 #include <stdlib.h>
 #include <pthread.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 #include "threadpool.h"
 

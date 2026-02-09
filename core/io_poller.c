@@ -1,15 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <string.h>
 #include <inttypes.h>
 #include <time.h>
 
-#ifndef __MINGW32__
-#include <poll.h>
-#endif
-
+#include "compat.h"
 #include "io_poller.h"
 #include "cog-utils.h"
 
@@ -50,7 +45,11 @@ on_io_poller_wakeup(struct io_poller *io,
                     void *user_data)
 {
     char buf[0x10000];
+#ifdef _WIN32
+    (void)recv((SOCKET)io->wakeup_fds[0], buf, sizeof buf, 0);
+#else
     (void)!read(io->wakeup_fds[0], buf, sizeof buf);
+#endif
 }
 
 struct io_poller *
@@ -62,11 +61,9 @@ io_poller_create(void)
         io->elements = calloc(io->cap, sizeof *io->elements);
         io->pollfds = calloc(io->cap, sizeof *io->pollfds);
         if (io->elements && io->pollfds) {
-            if (0 == pipe(io->wakeup_fds)) {
-                int flags = fcntl(io->wakeup_fds[0], F_GETFL);
-                fcntl(io->wakeup_fds[0], F_SETFL, flags | O_NONBLOCK);
-                flags = fcntl(io->wakeup_fds[1], F_GETFL);
-                fcntl(io->wakeup_fds[1], F_SETFL, flags | O_NONBLOCK);
+            if (0 == compat_socketpair(io->wakeup_fds)) {
+                compat_set_nonblocking(io->wakeup_fds[0]);
+                compat_set_nonblocking(io->wakeup_fds[1]);
 
                 io_poller_socket_add(io, io->wakeup_fds[0], IO_POLLER_IN,
                                      on_io_poller_wakeup, NULL);
@@ -83,8 +80,8 @@ io_poller_create(void)
 void
 io_poller_destroy(struct io_poller *io)
 {
-    close(io->wakeup_fds[0]);
-    close(io->wakeup_fds[1]);
+    compat_close_socket(io->wakeup_fds[0]);
+    compat_close_socket(io->wakeup_fds[1]);
     for (int i = 0; i < io->curlm_cnt; i++) {
         free(io->curlm[i]->fds);
         free(io->curlm[i]);
@@ -99,7 +96,11 @@ void
 io_poller_wakeup(struct io_poller *io)
 {
     char buf = 0;
+#ifdef _WIN32
+    send((SOCKET)io->wakeup_fds[1], &buf, sizeof buf, 0);
+#else
     (void)!write(io->wakeup_fds[1], &buf, sizeof buf);
+#endif
 }
 
 int

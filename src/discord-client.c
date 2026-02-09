@@ -2,8 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
+#include "compat.h"
 #include "discord.h"
 #include "discord-internal.h"
 #include "discord-worker.h"
@@ -232,7 +235,7 @@ discord_cleanup(struct discord *client)
         return;
     }
 
-    close(client->shutdown_fd);
+    compat_close_socket(client->shutdown_fd);
     discord_worker_join(client);
     discord_rest_cleanup(&client->rest);
     discord_gateway_cleanup(&client->gw);

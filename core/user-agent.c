@@ -4,7 +4,11 @@
 #include <stdarg.h>
 #include <ctype.h> /* isspace() */
 #include <string.h>
+#ifdef _WIN32
+#include "compat.h"
+#else
 #include <strings.h>
+#endif
 #include <pthread.h>
 
 #include "user-agent.h"

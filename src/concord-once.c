@@ -1,10 +1,12 @@
 #include <string.h>
-#include <signal.h>
 #include <curl/curl.h>
 #include <pthread.h>
-#include <unistd.h>
-#include <poll.h>
-#include <sys/ioctl.h>
+
+#include "compat.h"
+
+#ifndef _WIN32
+#include <signal.h>
+#endif
 
 #include "error.h"
 #include "discord-worker.h"
@@ -22,16 +24,20 @@ void
 ccord_shutdown_async(void)
 {
     char b = 0;
+#ifdef _WIN32
+    send((SOCKET)shutdown_fds[1], &b, sizeof b, 0);
+#else
     write(shutdown_fds[1], &b, sizeof b);
+#endif
 }
 
 int
 ccord_shutting_down(void)
 {
-    struct pollfd pfd = {
-        .fd = shutdown_fds[0],
-        .events = POLLIN,
-    };
+    struct pollfd pfd;
+    memset(&pfd, 0, sizeof pfd);
+    pfd.fd = shutdown_fds[0];
+    pfd.events = POLLIN;
     if (-1 == shutdown_fds[0]) return 0;
     poll(&pfd, 1, 0);
     return !!(pfd.revents & POLLIN);
@@ -39,6 +45,20 @@ ccord_shutting_down(void)
 
 #ifdef CCORD_SIGINTCATCH
 /* shutdown gracefully on SIGINT received */
+#ifdef _WIN32
+static BOOL WINAPI
+_ccord_console_handler(DWORD dwCtrlType)
+{
+    if (dwCtrlType == CTRL_C_EVENT || dwCtrlType == CTRL_BREAK_EVENT) {
+        const char err_str[] =
+            "\nSIGINT: Disconnecting running concord client(s) ...\n";
+        _write(2, err_str, (unsigned)strlen(err_str));
+        ccord_shutdown_async();
+        return TRUE;
+    }
+    return FALSE;
+}
+#else
 static void
 _ccord_sigint_handler(int signum)
 {
@@ -48,6 +68,7 @@ _ccord_sigint_handler(int signum)
     write(STDERR_FILENO, err_str, strlen(err_str));
     ccord_shutdown_async();
 }
+#endif /* _WIN32 */
 #endif /* CCORD_SIGINTCATCH */
 
 CCORDcode
@@ -56,7 +77,11 @@ ccord_global_init()
     pthread_mutex_lock(&lock);
     if (0 == init_counter++) {
 #ifdef CCORD_SIGINTCATCH
+#ifdef _WIN32
+        SetConsoleCtrlHandler(_ccord_console_handler, TRUE);
+#else
         signal(SIGINT, &_ccord_sigint_handler);
+#endif
 #endif
         if (0 != curl_global_init(CURL_GLOBAL_DEFAULT)) {
             fputs("Couldn't start libcurl's globals\n", stderr);
@@ -66,22 +91,12 @@ ccord_global_init()
             fputs("Attempt duplicate global initialization\n", stderr);
             goto fail_discord_worker_init;
         }
-        if (0 != pipe(shutdown_fds)) {
+        if (0 != compat_socketpair(shutdown_fds)) {
             fputs("Failed to create shutdown pipe\n", stderr);
             goto fail_pipe_init;
         }
         for (int i = 0; i < 2; i++) {
-            const int on = 1;
-
-            #ifdef FIOCLEX
-                if (0 != ioctl(shutdown_fds[i], FIOCLEX, NULL)) {
-                    fputs("Failed to make shutdown pipe close on execute\n",
-                        stderr);
-                    goto fail_pipe_init;
-                }
-            #endif
-
-            if (0 != ioctl(shutdown_fds[i], (int)FIONBIO, &on)) {
+            if (0 != compat_set_nonblocking(shutdown_fds[i])) {
                 fputs("Failed to make shutdown pipe nonblocking\n", stderr);
                 goto fail_pipe_init;
             }
@@ -93,7 +108,7 @@ ccord_global_init()
 fail_pipe_init:
     for (int i = 0; i < 2; i++) {
         if (-1 != shutdown_fds[i]) {
-            close(shutdown_fds[i]);
+            compat_close_socket(shutdown_fds[i]);
             shutdown_fds[i] = -1;
         }
     }
@@ -115,7 +130,7 @@ ccord_global_cleanup()
         curl_global_cleanup();
         discord_worker_global_cleanup();
         for (int i = 0; i < 2; i++) {
-            close(shutdown_fds[i]);
+            compat_close_socket(shutdown_fds[i]);
             shutdown_fds[i] = -1;
         }
     }
@@ -125,8 +140,21 @@ ccord_global_cleanup()
 int
 discord_dup_shutdown_fd(void)
 {
-    int fd = -1;
     if (-1 == shutdown_fds[0]) return -1;
+#ifdef _WIN32
+    /* On Windows we duplicate the socket via WSA */
+    WSAPROTOCOL_INFOW info;
+    if (WSADuplicateSocketW((SOCKET)shutdown_fds[0], GetCurrentProcessId(), &info) != 0)
+        return -1;
+    SOCKET s = WSASocketW(info.iAddressFamily, info.iSocketType, info.iProtocol, &info, 0, 0);
+    if (s == INVALID_SOCKET) return -1;
+    if (0 != compat_set_nonblocking((int)s)) {
+        closesocket(s);
+        return -1;
+    }
+    return (int)s;
+#else
+    int fd = -1;
     if (-1 != (fd = dup(shutdown_fds[0]))) {
         const int on = 1;
 
@@ -143,4 +171,5 @@ discord_dup_shutdown_fd(void)
         }
     }
     return fd;
+#endif
 }

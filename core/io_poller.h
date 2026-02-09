@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <curl/curl.h>
+#include "compat.h"
 
 /**
  * @brief The flags to poll for
@@ -15,7 +16,11 @@ enum io_poller_events {
 /**
  * @brief a socket or file descriptor
  */
+#ifdef _WIN32
+typedef SOCKET io_poller_socket;
+#else
 typedef int io_poller_socket;
+#endif
 
 /**
  * @brief handle for watching file descriptors, sockets, and curl multis

@@ -25,11 +25,16 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+#ifdef _WIN32
+#include "compat.h"
+#include <wincrypt.h>
+#else
 #include <strings.h>
-#include <ctype.h>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#endif
+#include <ctype.h>
 #include "sha1.h"
 
 static void
@@ -110,6 +115,19 @@ _cws_encode_base64(const uint8_t *input, const size_t input_len, char *output)
 static void
 _cws_get_random(void *buffer, size_t len)
 {
+#ifdef _WIN32
+    HCRYPTPROV hProv = 0;
+    if (CryptAcquireContextA(&hProv, NULL, NULL, PROV_RSA_FULL,
+                             CRYPT_VERIFYCONTEXT)) {
+        CryptGenRandom(hProv, (DWORD)len, (BYTE *)buffer);
+        CryptReleaseContext(hProv, 0);
+    } else {
+        /* fallback */
+        uint8_t *bytes = buffer;
+        for (size_t i = 0; i < len; i++)
+            bytes[i] = (uint8_t)(rand() & 0xff);
+    }
+#else
     uint8_t *bytes = buffer;
     uint8_t *bytes_end = bytes + len;
     int fd = open("/dev/urandom", O_RDONLY);
@@ -128,6 +146,7 @@ _cws_get_random(void *buffer, size_t len)
         for (; bytes < bytes_end; bytes++)
             *bytes = random() & 0xff;
     }
+#endif
 }
 
 static inline void
@@ -160,7 +179,10 @@ _cws_header_has_prefix(const char *buffer, const size_t buflen, const char *pref
 static inline void
 _cws_hton(void *mem, uint8_t len)
 {
-#if __BYTE_ORDER__ != __BIG_ENDIAN
+/* MSVC does not define __BYTE_ORDER__; assume little-endian on Windows */
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    (void)mem; (void)len;
+#else
     uint8_t *bytes;
     uint8_t i, mid;
 
@@ -179,7 +201,10 @@ _cws_hton(void *mem, uint8_t len)
 static inline void
 _cws_ntoh(void *mem, uint8_t len)
 {
-#if __BYTE_ORDER__ != __BIG_ENDIAN
+/* MSVC does not define __BYTE_ORDER__; assume little-endian on Windows */
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+    (void)mem; (void)len;
+#else
     uint8_t *bytes;
     uint8_t i, mid;
 

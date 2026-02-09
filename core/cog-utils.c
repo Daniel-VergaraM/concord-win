@@ -8,9 +8,13 @@
 #include <time.h>
 #include <errno.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
+#endif
 
 #include "cog-utils.h"
 #include "clock.h"
@@ -188,7 +192,14 @@ cog_sleep_ms(const long tms)
 {
     int ret;
 
-#if _POSIX_C_SOURCE >= 199309L
+#ifdef _WIN32
+    if (tms < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    Sleep((DWORD)tms);
+    ret = 0;
+#elif _POSIX_C_SOURCE >= 199309L
     struct timespec ts;
 
     if (tms < 0) {
@@ -222,7 +233,15 @@ cog_sleep_us(const long tms)
 {
     int ret;
 
-#if _POSIX_C_SOURCE >= 199309L
+#ifdef _WIN32
+    if (tms < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    /* Windows Sleep has ms resolution; round up */
+    Sleep((DWORD)((tms + 999) / 1000));
+    ret = 0;
+#elif _POSIX_C_SOURCE >= 199309L
     struct timespec ts;
 
     if (tms < 0) {

@@ -25,15 +25,20 @@
 #include "curl-websocket.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <ctype.h>
 #include <inttypes.h>
 #include <errno.h>
 #include <time.h>
+
+#ifdef _WIN32
+#include "compat.h"
+#else
+#include <strings.h>
+#include <unistd.h>
+#include <fcntl.h>
+#endif
 
 #include "curl-websocket-utils.c"
 

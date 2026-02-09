@@ -2,9 +2,14 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include <strings.h> /* strcasecmp() */
 #include <stdarg.h>
+
+#ifdef _WIN32
+#include "compat.h"
+#else
+#include <strings.h> /* strcasecmp() */
 #include <unistd.h> /* getpid() */
+#endif
 
 #include "logconf.h"
 #include "cog-utils.h"
