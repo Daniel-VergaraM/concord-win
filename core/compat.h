@@ -29,8 +29,12 @@
 
 /* ---- poll() ----------------------------------------------------------- */
 #define poll       WSAPoll
+#ifndef POLLIN
 #define POLLIN     POLLRDNORM
+#endif
+#ifndef POLLOUT
 #define POLLOUT    POLLWRNORM
+#endif
 
 /* ---- POSIX string helpers --------------------------------------------- */
 #define strcasecmp   _stricmp
