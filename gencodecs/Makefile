@@ -2,9 +2,9 @@
 # If you are cross-compiling, do NOT set this to the target preprocessor!
 # This needs to run on the host -- that's why $(CC) and $(CPP) are
 # available here to be set.
-CPP = cc -E
-CC = cc
-HOSTCC = cc
+CC = gcc
+CPP = $(CC) -E
+HOSTCC = $(CC)
 
 TOP = ..
 
@@ -17,7 +17,7 @@ DOCS_DIR    = $(TOP)/docs
 PP = gencodecs-pp
 
 # Input file name without its extension
-INPUT_NO_EXT = discord_codecs
+INPUT_NO_EXT = discord-codecs
 
 # Input file to be preprocessed
 INPUT = $(INPUT_NO_EXT).PRE.h

@@ -1,3 +1,4 @@
+CC   = gcc
 TOP  = ..
 
 PREFIX = /usr/local
@@ -21,7 +22,7 @@ CORE_OBJS     = $(CORE_DIR)/cog-utils.o      \
                 $(CORE_DIR)/sha1.o           \
                 $(CORE_DIR)/threadpool.o     \
                 $(CORE_DIR)/queriec.o
-GENCODECS_OBJ = $(GENCODECS_DIR)/discord_codecs.o
+GENCODECS_OBJ = $(GENCODECS_DIR)/discord-codecs.o
 VOICE_OBJS    = discord-voice.o
 
 OBJS += concord-once.o             \
@@ -56,8 +57,16 @@ OBJS += concord-once.o             \
         webhook.o
 
 WFLAGS  = -Wall -Wextra -Wshadow -Wdouble-promotion -Wconversion -Wpedantic
+# Auto-detect MSYS2 curl on Windows (only if not already set)
+ifeq ($(CURL_INC),)
+  ifneq ($(wildcard C:/msys64/mingw64/include/curl/curl.h),)
+    CURL_INC = -IC:/msys64/mingw64/include
+  else ifneq ($(wildcard C:/Users/thefl/scoop/apps/msys2/current/mingw64/include/curl/curl.h),)
+    CURL_INC = -IC:/Users/thefl/scoop/apps/msys2/current/mingw64/include
+  endif
+endif
 CFLAGS += -std=c99 -pthread -D_XOPEN_SOURCE=600 -DLOG_USE_COLOR \
-          -I$(INCLUDE_DIR) -I$(CORE_DIR) -I$(GENCODECS_DIR) -I$(PREFIX)/include
+          -I$(INCLUDE_DIR) -I$(CORE_DIR) -I$(GENCODECS_DIR) -I$(PREFIX)/include $(CURL_INC)
 
 ARLIB = $(LIBDIR)/libdiscord.a
 SOLIB = $(LIBDIR)/libdiscord.so

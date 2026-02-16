@@ -2,6 +2,15 @@ PREFIX          ?= /usr/local
 DESTINCLUDE_DIR  = $(PREFIX)/include/concord
 DESTLIBDIR       = $(PREFIX)/lib
 
+CC            = gcc
+# Auto-detect MSYS2 curl on Windows
+ifneq ($(wildcard C:/msys64/mingw64/include/curl/curl.h),)
+  CURL_INC = -IC:/msys64/mingw64/include
+  CURL_LIB = -LC:/msys64/mingw64/lib
+else ifneq ($(wildcard C:/Users/thefl/scoop/apps/msys2/current/mingw64/include/curl/curl.h),)
+  CURL_INC = -IC:/Users/thefl/scoop/apps/msys2/current/mingw64/include
+  CURL_LIB = -LC:/Users/thefl/scoop/apps/msys2/current/mingw64/lib
+endif
 SRC_DIR       = src
 INCLUDE_DIR   = include
 LIBDIR        = lib
@@ -23,17 +32,17 @@ CFLAGS ?= -O2
 all: static
 
 static:
-	@ CFLAGS="$(CFLAGS)" $(MAKE) -C $(CORE_DIR)
-	@ $(MAKE) -C $(GENCODECS_DIR)
-	@ CFLAGS="$(CFLAGS)" $(MAKE) -C $(SRC_DIR) $@
+	@ CC="$(CC)" CFLAGS="$(CFLAGS) $(CURL_INC)" $(MAKE) -C $(CORE_DIR)
+	@ CC="$(CC)" $(MAKE) -C $(GENCODECS_DIR)
+	@ CC="$(CC)" CFLAGS="$(CFLAGS)" CURL_INC="$(CURL_INC)" $(MAKE) -C $(SRC_DIR) $@
 shared:
-	@ CFLAGS="$(SOFLAGS) $(CFLAGS)" $(MAKE) -C $(CORE_DIR)
-	@ CFLAGS="$(SOFLAGS)" $(MAKE) -C $(GENCODECS_DIR)
-	@ CFLAGS="$(CFLAGS)" $(MAKE) -C $(SRC_DIR) $@
+	@ CC="$(CC)" CFLAGS="$(SOFLAGS) $(CFLAGS) $(CURL_INC)" $(MAKE) -C $(CORE_DIR)
+	@ CC="$(CC)" CFLAGS="$(SOFLAGS)" $(MAKE) -C $(GENCODECS_DIR)
+	@ CC="$(CC)" CFLAGS="$(CFLAGS)" CURL_INC="$(CURL_INC)" $(MAKE) -C $(SRC_DIR) $@
 shared_osx:
-	@ CFLAGS="$(DYFLAGS) $(CFLAGS)" $(MAKE) -C $(CORE_DIR)
-	@ CFLAGS="$(DYFLAGS)" $(MAKE) -C $(GENCODECS_DIR)
-	@ CFLAGS="$(CFLAGS)" $(MAKE) -C $(SRC_DIR) $@
+	@ CC="$(CC)" CFLAGS="$(DYFLAGS) $(CFLAGS) $(CURL_INC)" $(MAKE) -C $(CORE_DIR)
+	@ CC="$(CC)" CFLAGS="$(DYFLAGS)" $(MAKE) -C $(GENCODECS_DIR)
+	@ CC="$(CC)" CFLAGS="$(CFLAGS)" CURL_INC="$(CURL_INC)" $(MAKE) -C $(SRC_DIR) $@
 
 install:
 	@ mkdir -p $(DESTLIBDIR)
@@ -57,25 +66,26 @@ echo:
 	@ echo -e 'CC: $(CC)\n'
 	@ echo -e 'PREFIX: $(PREFIX)\n'
 	@ echo -e 'CFLAGS: $(CFLAGS)\n'
+	@ echo -e 'CURL_INC: $(CURL_INC)\n'
 
 voice:
-	@ CFLAGS="$(CFLAGS)" $(MAKE) -C $(SRC_DIR) $@
+	@ CC="$(CC)" CFLAGS="$(CFLAGS)" $(MAKE) -C $(SRC_DIR) $@
 debug:
-	@ CFLAGS="$(DEBUG_FLAGS)" $(MAKE)
+	@ CC="$(CC)" CFLAGS="$(DEBUG_FLAGS)" $(MAKE)
 
 test: debug
-	@ $(MAKE) -C $(TEST_DIR)
+	@ CC="$(CC)" $(MAKE) -C $(TEST_DIR)
 examples: all
-	@ $(MAKE) -C $(EXAMPLES_DIR)
+	@ CC="$(CC)" $(MAKE) -C $(EXAMPLES_DIR)
 
 clean: 
-	@ $(MAKE) -C $(SRC_DIR) $@
-	@ $(MAKE) -C $(TEST_DIR) $@
-	@ $(MAKE) -C $(EXAMPLES_DIR) $@
-	@ $(MAKE) -C $(GENCODECS_DIR) $@
+	@ CC="$(CC)" $(MAKE) -C $(SRC_DIR) $@
+	@ CC="$(CC)" $(MAKE) -C $(TEST_DIR) $@
+	@ CC="$(CC)" $(MAKE) -C $(EXAMPLES_DIR) $@
+	@ CC="$(CC)" $(MAKE) -C $(GENCODECS_DIR) $@
 
 purge: clean
-	@ $(MAKE) -C $(SRC_DIR) $@
+	@ CC="$(CC)" $(MAKE) -C $(SRC_DIR) $@
 
 latest: master
 latest-dev: dev
