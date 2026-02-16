@@ -38,7 +38,7 @@ extern "C" {
 struct discord;
 /**/
 
-#include "discord_codecs.h"
+#include "discord-codecs.h"
 #ifdef CCORD_VOICE
 #include "discord-voice.h"
 #endif /* CCORD_VOICE */
