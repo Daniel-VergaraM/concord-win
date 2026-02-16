@@ -4,6 +4,7 @@
 #include "discord.h"
 #include "discord-internal.h"
 #include "anomap.h"
+#include "concord/gencodecs/discord-codecs.h"
 
 #define DISCORD_EPOCH 1420070400000
 
